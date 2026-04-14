@@ -2,75 +2,107 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
+# Nome do pipeline (aparece no GitHub Actions)
 name: Build and deploy Python app to Azure Web App - AppEstranho
 
+# Define quando o pipeline será executado
 on:
   push:
+    # Executa quando houver push na branch main
     branches:
       - main
+  # Permite executar manualmente pelo GitHub
   workflow_dispatch:
 
+# Define os jobs (etapas principais do pipeline)
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
 
+  # Job de build (construção da aplicação)
+  build:
+    # Máquina virtual usada (Linux Ubuntu)
+    runs-on: ubuntu-latest
+
+    # Permissões necessárias para o job
+    permissions:
+      contents: read # Permite ler o código do repositório
+
+    # Passos que o job executa
     steps:
+
+      # Faz checkout do código do repositório
       - uses: actions/checkout@v4
 
+      # STEP ADICIONADO (exercício)
+      # Exibe uma mensagem no console antes do build
+      - name: Mensagem de início
+        run: echo "Iniciando o deploy do meu projeto!"
+
+      # Define a versão do Python que será usada
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
-      # 🛠️ Local Build Section (Optional)
-      # The following section in your workflow is designed to catch build issues early on the client side, before deployment. This can be helpful for debugging and validation. However, if this step significantly increases deployment time and early detection is not critical for your workflow, you may remove this section to streamline the deployment process.
+      # Cria ambiente virtual e instala dependências
       - name: Create and Start virtual environment and Install dependencies
         run: |
+          # Cria um ambiente virtual chamado antenv
           python -m venv antenv
+          # Ativa o ambiente virtual
           source antenv/bin/activate
+          # Instala as dependências do projeto
           pip install -r requirements.txt
                 
-      # By default, when you enable GitHub CI/CD integration through the Azure portal, the platform automatically sets the SCM_DO_BUILD_DURING_DEPLOYMENT application setting to true. This triggers the use of Oryx, a build engine that handles application compilation and dependency installation (e.g., pip install) directly on the platform during deployment. Hence, we exclude the antenv virtual environment directory from the deployment artifact to reduce the payload size. 
+      # Envia os arquivos como artefato para o próximo job
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
+          # Nome do artefato
           name: python-app
           path: |
-            .
-            !antenv/
+            .          # Inclui todos os arquivos do projeto
+            !antenv/   # Exclui o ambiente virtual (não precisa subir)
 
-      # 🚫 Opting Out of Oryx Build
-      # If you prefer to disable the Oryx build process during deployment, follow these steps:
-      # 1. Remove the SCM_DO_BUILD_DURING_DEPLOYMENT app setting from your Azure App Service Environment variables.
-      # 2. Refer to sample workflows for alternative deployment strategies: https://github.com/Azure/actions-workflow-samples/tree/master/AppService
-      
-
+  # Job de deploy (implantação na Azure)
   deploy:
+    # Máquina virtual usada
     runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
 
+    # Esse job só roda depois do build
+    needs: build
+
+    # Permissões necessárias
+    permissions:
+      id-token: write # Necessário para autenticação com Azure
+      contents: read  # Permite ler o repositório
+
+    # Passos do deploy
     steps:
+
+      # Baixa o artefato gerado no build
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: python-app
       
+      # Faz login na Azure usando credenciais seguras
       - name: Login to Azure
         uses: azure/login@v2
         with:
+          # Credenciais armazenadas como secrets no GitHub
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A72F2C521156465994B3CBDFB01D3ABC }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_00843A4537294861B2F0CF121FD1156F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_049A824D63054C53B274A6BEB4D6F54E }}
 
+      # Realiza o deploy da aplicação na Azure
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
+          # Nome da aplicação na Azure
+          app-name: 'AppEstranho'
+          # Ambiente (produção)
+          slot-name: 'Production'
           app-name: 'AppEstranho'
           slot-name: 'Production'
           
